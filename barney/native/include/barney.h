@@ -398,6 +398,12 @@ void bnRender(BNRenderer    renderer,
               BNFrameBuffer fb);
 
 BARNEY_API
+void bnRenderLocal(BNRenderer    renderer,
+                   BNModel       model,
+                   BNCamera      camera,
+                   BNFrameBuffer fb);
+
+BARNEY_API
 void bnSetInstances(BNModel model,
                     int whichSlot,
                     BNGroup *groupsToInstantiate,

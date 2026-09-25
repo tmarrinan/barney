@@ -23,7 +23,8 @@ namespace BARNEY_NS {
   
     void GlobalModel::render(Renderer *renderer,
                              Camera      *_camera,
-                             FrameBuffer *_fb)
+                             FrameBuffer *_fb,
+                             bool imgStitch)
     {
       if (context->myRank() == 0 && FromEnv::logQueues) 
         std::cout << "============================================ new frame\n";
@@ -32,7 +33,7 @@ namespace BARNEY_NS {
       Camera *camera = (Camera *)_camera;
       assert(fb);
       context->ensureRayQueuesLargeEnoughFor(fb);
-      context->render((Renderer*)renderer,this,camera,fb);
+      context->render((Renderer*)renderer,this,camera,fb,imgStitch);
       if (profHook)
         profHook();
     }

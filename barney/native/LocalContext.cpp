@@ -78,7 +78,8 @@ namespace BARNEY_NS {
     void LocalContext::render(Renderer    *renderer,
                               GlobalModel *model,
                               Camera      *camera,
-                              FrameBuffer *fb)
+                              FrameBuffer *fb,
+                              bool imgStitch)
     {
       assert(model);
       assert(fb);
@@ -88,7 +89,10 @@ namespace BARNEY_NS {
 
       renderTiles(renderer,model,camera,fb);
       finalizeTiles(fb);
-      fb->finalizeFrame();
+
+      if (imgStitch) {
+        fb->finalizeFrame();
+      }
     }
 
     Context *LocalContext::create(/*! this is the NUMBER of different data

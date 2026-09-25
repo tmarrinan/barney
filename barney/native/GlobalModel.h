@@ -38,7 +38,8 @@ namespace BARNEY_NS {
       void build(int slot);
       void render(Renderer    *renderer,
                   Camera      *camera,
-                  FrameBuffer *fb);
+                  FrameBuffer *fb,
+                  bool imgStitch = true);
 
       ModelSlot *getSlot(int whichSlot)
       {

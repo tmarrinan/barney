@@ -48,7 +48,8 @@ namespace BARNEY_NS {
       void render(Renderer    *renderer,
                   GlobalModel *model,
                   Camera      *camera,
-                  FrameBuffer *fb) override;
+                  FrameBuffer *fb,
+                  bool imgStitch = true) override;
 
       int myRank() override { return 0; }
       int mySize() override { return 1; }

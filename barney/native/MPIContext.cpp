@@ -100,7 +100,8 @@ namespace BARNEY_NS {
     void MPIContext::render(Renderer    *renderer,
                             GlobalModel *model,
                             Camera      *camera,
-                            FrameBuffer *_fb)
+                            FrameBuffer *_fb,
+                            bool imgStitch)
     {
       auto _context = this;
       DistFB *fb = (DistFB *)_fb;
@@ -115,7 +116,9 @@ namespace BARNEY_NS {
         renderTiles(renderer,model,camera,fb);
         finalizeTiles(fb);
       }
-      fb->finalizeFrame();
+      if (imgStitch) {
+        fb->finalizeFrame();
+      }
     }
 
     void MPIContext::barrier(bool warn) 

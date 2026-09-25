@@ -190,7 +190,8 @@ namespace BARNEY_NS {
       virtual void render(Renderer    *renderer,
                           GlobalModel *model,
                           Camera      *camera,
-                          FrameBuffer *fb) = 0;
+                          FrameBuffer *fb,
+                          bool imgStitch) = 0;
 
       void ensureRayQueuesLargeEnoughFor(FrameBuffer *fb);
 

@@ -749,4 +749,16 @@ namespace BARNEY_NS {
     checkGet(model)->render(checkGet(renderer),checkGet(camera),checkGet(fb));
   }
 
+  BARNEY_API
+  void bnRenderLocal(BNRenderer    renderer,
+                     BNModel       model,
+                     BNCamera      camera,
+                     BNFrameBuffer fb)
+  {
+    static int numCalls = 0;
+    if (++numCalls < 10)
+      LOG_API_ENTRY;
+    checkGet(model)->render(checkGet(renderer),checkGet(camera),checkGet(fb),false);
+  }
+
 } 
