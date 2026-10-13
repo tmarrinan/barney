@@ -717,6 +717,13 @@ namespace BARNEY_NS {
   }
 
   BARNEY_API
+  void *bnFrameBufferGetDeviceColor(BNFrameBuffer fb)
+  {
+    LOG_API_ENTRY;
+    return checkGet(fb)->linearColorChannel;
+  }
+
+  BARNEY_API
   void bnFrameBufferGetSize(BNFrameBuffer fb, int *sizeX, int *sizeY)
   {
     if (!sizeX || !sizeY) return;

@@ -1,0 +1,21 @@
+{
+  "info": {
+    "name": "BN_FRAME_LOCAL_TILES",
+    "type": "extension",
+    "dependencies": []
+  },
+  "objects": [
+    {
+      "type": "ANARI_FRAME",
+      "parameters": [
+        {
+          "name": "localOnly",
+          "types": ["ANARI_BOOL"],
+          "tags": [],
+          "default": false,
+          "description": "MPI data-parallel: keep each rank's screen tiles in local CUDA memory instead of gathering them onto rank 0"
+        }
+      ]
+    }
+  ]
+}

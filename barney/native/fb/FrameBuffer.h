@@ -159,6 +159,10 @@ namespace BARNEY_NS {
         full display resolution. Requires denoiser support. */
       bool enableUpscaling = false;
 
+      /*! MPI data-parallel: leave each rank's tiles in local device
+        memory instead of compressing and gathering them onto rank 0. */
+      bool localOnly = false;
+
       /*! how many samples per pixels have already been accumulated in
         this frame buffer's accumulation buffer. Note this is counted
         in *samples*, not *frames*. */

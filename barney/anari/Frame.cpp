@@ -84,6 +84,7 @@ namespace BARNEY_NS {
       m_channelTypes.motion =
         getParam<anari::DataType>("channel.motion", ANARI_UNKNOWN);
       m_size = getParam<math::uint2>("size", math::uint2(10, 10));
+      m_localOnly = getParam<bool>("localOnly", false);
       m_displaySize = m_size;  /* updated in finalize() from actual FB when slot==0 */
     }
 
@@ -131,6 +132,7 @@ namespace BARNEY_NS {
           bnSet1i(m_bnFrameBuffer, "denoise", m_renderer->denoise() ? 1 : 0);
           bnSet1i(m_bnFrameBuffer, "fadeOutDenoiser", m_renderer->fadeOutDenoiser() ? 1 : 0);
           bnSet1i(m_bnFrameBuffer, "upscale", m_renderer->upscale() ? 1 : 0);
+          bnSet1i(m_bnFrameBuffer, "localOnly", m_localOnly ? 1 : 0);
           bnCommit(m_bnFrameBuffer);
 
           bnFrameBufferResize(m_bnFrameBuffer,
@@ -326,9 +328,17 @@ namespace BARNEY_NS {
         return m_channelBuffers.motion;
 #if HAVE_NV_FRAMEBUFFER_EXTENSION
       } else if (channel == "channel.colorCUDA") {
-        if (m_channelBuffers.color)
+        if (m_channelBuffers.color || m_colorCUDABorrowed)
           throw std::runtime_error
             ("trying to map color buffer, but color buffer already mapped");
+        m_didMapChannel.color = true;
+        *pixelType = m_channelTypes.color;
+        if (m_localOnly) {
+          /* Hand back the rank-local CUDA buffer. The caller copies
+             it if a host image is needed; unmap does not free it. */
+          m_colorCUDABorrowed = true;
+          return bnFrameBufferGetDeviceColor(m_bnFrameBuffer);
+        }
         cudaMalloc((void **)&m_channelBuffers.color,
                    numPixels
                    * (m_channelTypes.color == ANARI_FLOAT32_VEC4 ? sizeof(math::float4)
@@ -337,8 +347,6 @@ namespace BARNEY_NS {
                           BN_FB_COLOR,
                           m_channelBuffers.color,
                           toBarney(m_channelTypes.color));
-        m_didMapChannel.color = true;
-        *pixelType = m_channelTypes.color;
         return m_channelBuffers.color;
       } else if (channel == "channel.depthCUDA"
                  && m_channelTypes.depth == ANARI_FLOAT32) {
@@ -442,7 +450,9 @@ namespace BARNEY_NS {
         }
 #if HAVE_NV_FRAMEBUFFER_EXTENSION
       } else if (channel == "channel.colorCUDA") {
-        if (m_channelBuffers.color) {
+        if (m_colorCUDABorrowed) {
+          m_colorCUDABorrowed = false;
+        } else if (m_channelBuffers.color) {
           cudaFree(m_channelBuffers.color);
           m_channelBuffers.color = 0;
         }

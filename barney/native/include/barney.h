@@ -385,6 +385,14 @@ void bnFrameBufferRead(BNFrameBuffer fb,
                        void *pointerToReadDataInto,
                        BNDataType requiredFormat);
 
+/*! Device pointer to this rank's color buffer. In MPI local-only mode
+    this is the CUDA allocation that holds just this rank's tiles
+    (other pixels are zero) and is not gathered onto rank 0. The
+    pointer stays valid until the next resize or framebuffer destroy.
+    Returns null if the color buffer has not been allocated. */
+BARNEY_API
+void *bnFrameBufferGetDeviceColor(BNFrameBuffer fb);
+
 /*! Return the actual framebuffer dimensions (may differ from resize
     when e.g. AI upscaling forces even dimensions). Use for buffer
     allocation and stride when mapping the color channel. */

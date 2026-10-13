@@ -72,6 +72,10 @@ namespace BARNEY_NS {
         enableUpscaling = value;
         return true;
       }
+      if (member == "localOnly") {
+        localOnly = (value != 0);
+        return true;
+      }
       return false;
     }
 
@@ -227,7 +231,10 @@ namespace BARNEY_NS {
       Device *device = getDenoiserDevice();
       SetActiveGPU forDuration(device);
 
-      bool doDenoising = (denoiser != 0) && (enableDenoising || enableUpscaling);
+      // Local tiles stay in this rank's CUDA buffer; denoising and
+      // upscaling both expect a fully gathered frame on the owner.
+      bool doDenoising = !localOnly
+        && (denoiser != 0) && (enableDenoising || enableUpscaling);
 
       bool needNormalChannel = (channels & BN_FB_NORMAL) && linearNormalChannel;
       void *colorCopyTarget
@@ -351,7 +358,7 @@ namespace BARNEY_NS {
     {
       if (!appMemory) return;
 
-      if (!isOwner) {
+      if (!isOwner && !localOnly) {
         // iw 'in theory' apps shoudln't even call map on any rank other
         // thank rank 0, but if they do, let's report them valid black,
         // zero-opacity, depth-infinity frame in case the app wants to
@@ -449,8 +456,9 @@ namespace BARNEY_NS {
 
       // when upscaling, render at half resolution (ceiling division so
       // that renderPixels covers at least numPixels/2 in each dim; the
-      // upscale kernel clamps edge pixels with min()).
-      if (enableUpscaling && denoiser) {
+      // upscale kernel clamps edge pixels with min()). Local-only
+      // output is the render-resolution tile buffer, so keep them equal.
+      if (enableUpscaling && denoiser && !localOnly) {
         renderPixels = vec2i((numPixels.x + 1) / 2, (numPixels.y + 1) / 2);
       } else {
         renderPixels = numPixels;
@@ -466,7 +474,7 @@ namespace BARNEY_NS {
         ? sizeof(vec4f)
         : sizeof(uint32_t);
 
-      if (isOwner) {
+      if (isOwner || localOnly) {
         auto rtc = getDenoiserDevice()->rtc;
         int dpNP = numPixels.x * numPixels.y;   // display pixels
         int rpNP = renderPixels.x * renderPixels.y; // render pixels
@@ -489,7 +497,7 @@ namespace BARNEY_NS {
           upscaledColorChannel = rtc->allocMem(dpNP * sizeof(vec4f));
         }
 
-        if (denoiser) {
+        if (denoiser && !localOnly) {
           // Never use OptiX UPSCALE2X (unreliable); we run HDR denoiser at half res
           // and do 2x upscale ourselves in readColorChannel.
           denoiser->upscaleMode = false;
