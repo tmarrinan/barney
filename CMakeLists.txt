@@ -19,7 +19,7 @@ option(BARNEY_MPI            "Enable MPI Support"          OFF)
 # cmake project/output config
 # ------------------------------------------------------------------
 set(BARNEY_VERSION_MAJOR 1)
-set(BARNEY_VERSION_MINOR 4)
+set(BARNEY_VERSION_MINOR 5)
 set(BARNEY_VERSION_PATCH 0)
 set(BARNEY_VERSION ${BARNEY_VERSION_MAJOR}.${BARNEY_VERSION_MINOR}.${BARNEY_VERSION_PATCH})
 
@@ -36,12 +36,6 @@ cmake_policy(SET CMP0079 NEW)
 cmake_policy(SET CMP0076 NEW)
 cmake_policy(SET CMP0063 NEW)
 
-if (NOT (${CMAKE_CURRENT_SOURCE_DIR} STREQUAL ${CMAKE_SOURCE_DIR}))
-  set(BARNEY_IS_SUBPROJECT ON)
-else()
-  set(BARNEY_IS_SUBPROJECT OFF)
-endif()
-
 set(CMAKE_BUILD_TYPE_INIT "Release")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -55,11 +49,10 @@ endif()
 include(GNUInstallDirs)
 include(CheckLanguage)
 
-if (NOT BARNEY_IS_SUBPROJECT)
-  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-  set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-  set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
-endif()
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR})
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_STANDARD 20)
@@ -96,6 +89,9 @@ else()
   set(BARNEY_BACKEND_HIP   OFF)
   set(BARNEY_BACKEND_HIPRT OFF)
 endif()
+
+set(BARNEY_PLUGIN_DIRS "" CACHE STRING "List of barney external plugin directories")
+mark_as_advanced(BARNEY_PLUGIN_DIRS)
 
 # ==================================================================
 # configure language(s): in theory we support either cuda, hip, or
@@ -143,12 +139,12 @@ macro(rtc_configure_source)
   foreach(src ${ARGN})
     get_filename_component(ext "${src}" EXT)
     if ((${ext} STREQUAL ".cu") OR (${ext} STREQUAL ".dev.cu"))
-      if (BARNEY_HAVE_CUDA)
+      if (backend STREQUAL "cuda" OR backend STREQUAL "optix")
         set_source_files_properties(${src} PROPERTIES
           LANGUAGE CUDA
           COMPILE_OPTIONS "--expt-relaxed-constexpr;--extended-lambda;-rdc=true"
         )
-      elseif (BARNEY_HAVE_HIP)
+      elseif (backend STREQUAL "hip" OR backend STREQUAL "hiprt")
         set_source_files_properties(${src} PROPERTIES
           LANGUAGE HIP
           COMPILE_OPTIONS "-fgpu-rdc"

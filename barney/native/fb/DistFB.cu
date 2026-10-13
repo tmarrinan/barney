@@ -298,6 +298,32 @@ namespace BARNEY_NS {
                                     BNDataType gatherType,
                                     vec3f *linearNormal)
     {
+      if (localOnly) {
+        /* Each rank writes only the tiles it owns into its own device
+           buffer. Unowned pixels stay zero, so the image is this
+           rank's checkerboard of tiles. No MPI gather. */
+        if (!linearColor) return;
+        size_t sizeOfPixel
+          = (gatherType == BN_FLOAT4) ? sizeof(vec4f) : sizeof(uint32_t);
+        Device *front = getDenoiserDevice();
+        SetActiveGPU forDuration(front);
+        front->rtc->memsetAsync(linearColor, 0,
+                                size_t(numPixels.x) * numPixels.y * sizeOfPixel);
+        if (linearNormal)
+          front->rtc->memsetAsync(linearNormal, 0,
+                                  size_t(numPixels.x) * numPixels.y * sizeof(vec3f));
+        front->sync();
+
+        float accumScale = 1.f / float(accumID == 0 ? 1u : accumID);
+        for (auto device : *devices) {
+          getFor(device)->linearizeColorAndNormal
+            (linearColor, gatherType, linearNormal, accumScale);
+        }
+        for (auto device : *devices)
+          device->sync();
+        return;
+      }
+
       // ------------------------------------------------------------------
       // gather all (packed) tiles from all clients
       // ------------------------------------------------------------------

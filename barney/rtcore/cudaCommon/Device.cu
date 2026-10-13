@@ -116,6 +116,11 @@ namespace BARNEY_NS {
       BARNEY_CUDA_SYNC_CHECK();
       
       int saved = setActive();
+#ifdef USE_HIP
+      /* HIP: Raise the device stack size,
+      which is too low by default, and can overflow.*/
+      hipDeviceSetLimit(hipLimitStackSize, 16*1024);
+#endif
       BARNEY_CUDA_CALL(StreamCreateWithFlags(&stream,cudaStreamNonBlocking));
       // BARNEY_CUDA_CALL(StreamCreate(&stream));
       restoreActive(saved);
@@ -132,7 +137,7 @@ namespace BARNEY_NS {
       BARNEY_CUDA_CHECK(cudaGetDevice(&oldActive));
       if (physicalID != oldActive) {
         BARNEY_CUDA_CHECK(cudaSetDevice(physicalID));
-        BARNEY_CUDA_SYNC_CHECK();
+        // BARNEY_CUDA_SYNC_CHECK();
       }
       return oldActive;
     }
@@ -150,7 +155,7 @@ namespace BARNEY_NS {
       // BARNEY_CUDA_CALL(MallocManaged((void **)&ptr,numBytes));
       BARNEY_CUDA_CALL(Malloc((void **)&ptr,numBytes));
       assert(ptr);
-      BARNEY_CUDA_SYNC_CHECK();
+      // BARNEY_CUDA_SYNC_CHECK();
       return ptr;
     }
     
@@ -175,7 +180,7 @@ namespace BARNEY_NS {
       if (!mem) return;
       SetActiveGPU forDuration(this);
       BARNEY_CUDA_CALL(Free(mem));
-      BARNEY_CUDA_SYNC_CHECK();
+      // BARNEY_CUDA_SYNC_CHECK();
     }
       
     void CudaDeviceBase::memsetAsync(void *mem,int value, size_t numBytes) 
@@ -197,7 +202,7 @@ namespace BARNEY_NS {
     {
       SetActiveGPU forDuration(this);
       BARNEY_CUDA_CALL(StreamSynchronize(stream));
-      BARNEY_CUDA_SYNC_CHECK();
+      // BARNEY_CUDA_SYNC_CHECK();
     }
 
     void CudaDeviceBase::freeTextureData(TextureData *td)

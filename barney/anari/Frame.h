@@ -50,6 +50,9 @@ namespace BARNEY_NS {
       void cleanup();
 
       bool        m_valid           {false};
+      bool        m_localOnly       {false};
+      /*! channel.colorCUDA mapped the framebuffer's own device pointer */
+      bool        m_colorCUDABorrowed {false};
       math::uint2 m_size            { 0,0 };
       /*! Actual framebuffer dimensions (from bnFrameBufferGetSize after
         resize). Matches buffer layout so map() reports correct stride. */
