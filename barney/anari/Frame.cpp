@@ -256,8 +256,19 @@ namespace BARNEY_NS {
       if (deviceState()->slot != 0) {
         return nullptr;
       }
-      *width = m_size.x;
-      *height = m_size.y;
+      if (m_localOnly) {
+        int tileSize = 0;
+        int numTiles = 0;
+        bnFrameBufferGetLocalTileInfo(m_bnFrameBuffer,
+                                     &tileSize,
+                                     &numTiles,
+                                     nullptr);
+        *width = static_cast<uint32_t>(tileSize);
+        *height = static_cast<uint32_t>(numTiles * tileSize);
+      } else {
+        *width = m_size.x;
+        *height = m_size.y;
+      }
       int numPixels = *width * *height;
       if (channel == "channel.color") {
         if (m_channelBuffers.color)
@@ -326,6 +337,33 @@ namespace BARNEY_NS {
         m_didMapChannel.motion = true;
         *pixelType = ANARI_FLOAT32_VEC2;
         return m_channelBuffers.motion;
+      } else if (channel == "channel.tileInfo" && m_localOnly) {
+        if (m_channelBuffers.tileInfo)
+          throw std::runtime_error
+            ("trying to map channel.tileInfo, but seems already mapped");
+        int tileSize = 0;
+        int numTiles = 0;
+        bnFrameBufferGetLocalTileInfo(m_bnFrameBuffer,
+                                     &tileSize,
+                                     &numTiles,
+                                     nullptr);
+        std::vector<bn_int2> origins(numTiles);
+        bnFrameBufferReadLocalTileOrigins(m_bnFrameBuffer, origins.data());
+        m_channelBuffers.tileInfo = new int32_t[size_t(numTiles) * 4];
+        for (int i = 0; i < numTiles; ++i) {
+          const int x = origins[i].x;
+          const int y = origins[i].y;
+          m_channelBuffers.tileInfo[4 * i + 0] = x;
+          m_channelBuffers.tileInfo[4 * i + 1] = y;
+          m_channelBuffers.tileInfo[4 * i + 2]
+            = std::max(0, std::min(tileSize, int(m_size.x) - x));
+          m_channelBuffers.tileInfo[4 * i + 3]
+            = std::max(0, std::min(tileSize, int(m_size.y) - y));
+        }
+        *width = 1;
+        *height = static_cast<uint32_t>(numTiles);
+        *pixelType = ANARI_INT32_VEC4;
+        return m_channelBuffers.tileInfo;
 #if HAVE_NV_FRAMEBUFFER_EXTENSION
       } else if (channel == "channel.colorCUDA") {
         if (m_channelBuffers.color || m_colorCUDABorrowed)
@@ -334,8 +372,7 @@ namespace BARNEY_NS {
         m_didMapChannel.color = true;
         *pixelType = m_channelTypes.color;
         if (m_localOnly) {
-          /* Hand back the rank-local CUDA buffer. The caller copies
-             it if a host image is needed; unmap does not free it. */
+          /* Hand back packed tiles from all local GPUs; unmap does not free it. */
           m_colorCUDABorrowed = true;
           return bnFrameBufferGetDeviceColor(m_bnFrameBuffer);
         }
@@ -448,6 +485,9 @@ namespace BARNEY_NS {
           delete[] m_channelBuffers.motion;
           m_channelBuffers.motion = 0;
         }
+      } else if (channel == "channel.tileInfo") {
+        delete[] m_channelBuffers.tileInfo;
+        m_channelBuffers.tileInfo = nullptr;
 #if HAVE_NV_FRAMEBUFFER_EXTENSION
       } else if (channel == "channel.colorCUDA") {
         if (m_colorCUDABorrowed) {
@@ -529,6 +569,9 @@ namespace BARNEY_NS {
       
       delete[] m_channelBuffers.motion;
       m_channelBuffers.motion = nullptr;
+
+      delete[] m_channelBuffers.tileInfo;
+      m_channelBuffers.tileInfo = nullptr;
     }
 
   } // namespace anari

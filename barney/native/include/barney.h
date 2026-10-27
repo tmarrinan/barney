@@ -385,13 +385,32 @@ void bnFrameBufferRead(BNFrameBuffer fb,
                        void *pointerToReadDataInto,
                        BNDataType requiredFormat);
 
-/*! Device pointer to this rank's color buffer. In MPI local-only mode
-    this is the CUDA allocation that holds just this rank's tiles
-    (other pixels are zero) and is not gathered onto rank 0. The
-    pointer stays valid until the next resize or framebuffer destroy.
-    Returns null if the color buffer has not been allocated. */
+/*! Device pointer to this rank's full-frame color buffer. In MPI
+    local-only mode, this is a rank-local CUDA buffer containing
+    packed tiles from all GPUs on that rank. Use
+    bnFrameBufferGetLocalTileInfo() for tile size, count, and
+    full-frame tile coordinates. The pointer stays valid until the
+    next resize or framebuffer destroy. Returns null if the color
+    buffer has not been allocated. */
 BARNEY_API
 void *bnFrameBufferGetDeviceColor(BNFrameBuffer fb);
+
+/*! Query local-only tile-stream metadata. tileDescs, when requested,
+    is a device pointer on the first local GPU to numTiles consecutive
+    {x,y} tile origins, in the same local-device/tile order as the
+    packed channel buffers. The pointer is valid until the next resize
+    or framebuffer destroy. */
+BARNEY_API
+void bnFrameBufferGetLocalTileInfo(BNFrameBuffer fb,
+                                   int *tileSize,
+                                   int *numTiles,
+                                   const void **tileDescs);
+
+/*! Copy local-only tile origins to host memory in packed-buffer order.
+    tileOrigins must hold numTiles bn_int2 elements. */
+BARNEY_API
+void bnFrameBufferReadLocalTileOrigins(BNFrameBuffer fb,
+                                      bn_int2 *tileOrigins);
 
 /*! Return the actual framebuffer dimensions (may differ from resize
     when e.g. AI upscaling forces even dimensions). Use for buffer

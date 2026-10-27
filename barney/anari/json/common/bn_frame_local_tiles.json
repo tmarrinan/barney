@@ -13,8 +13,11 @@
           "types": ["ANARI_BOOL"],
           "tags": [],
           "default": false,
-          "description": "MPI data-parallel: keep each rank's screen tiles in local CUDA memory instead of gathering them onto rank 0"
+          "description": "MPI data-parallel: expose this rank's tiles packed in local-device/tile order without gathering onto rank 0. Mapped image channels have dimensions 32 by (localTileCount * 32). Map channel.tileInfo for one ANARI_INT32_VEC4 per packed tile: full-frame origin x/y and valid edge-clipped tile width/height."
         }
+      ],
+      "channel": [
+        "channel.tileInfo"
       ]
     }
   ]

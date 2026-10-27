@@ -17,7 +17,9 @@ namespace BARNEY_NS {
                                        float      accumScale,
                                        TileDesc  *descs,
                                        AccumTile *tiles,
-                                       vec2i      numPixels)
+                                       vec2i      numPixels,
+                                       bool       packedTiles,
+                                       int        firstPackedTile)
     {
 #if RTC_DEVICE_CODE
       int tileIdx = ci.getBlockIdx().x;
@@ -30,9 +32,10 @@ namespace BARNEY_NS {
       int iiy = subIdx / tileSize;
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
-      if (ix >= numPixels.x) return;
-      if (iy >= numPixels.y) return;
-      int idx = ix + numPixels.x*iy;
+      if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int idx = packedTiles
+        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        : ix + numPixels.x*iy;
 
       vec4f color = tile->accum[subIdx] * accumScale;
 
@@ -58,7 +61,9 @@ namespace BARNEY_NS {
                                     void              *linearOut,
                                     vec2i              numPixels,
                                     MotionChannelTile *tiles,
-                                    TileDesc          *descs)
+                                    TileDesc          *descs,
+                                    bool               packedTiles,
+                                    int                firstPackedTile)
     {
 #if RTC_DEVICE_CODE
       int      tileIdx = ci.getBlockIdx().x;
@@ -69,9 +74,10 @@ namespace BARNEY_NS {
       int iiy = subIdx / tileSize;
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
-      if (ix >= numPixels.x) return;
-      if (iy >= numPixels.y) return;
-      int idx = ix + numPixels.x*iy;
+      if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int idx = packedTiles
+        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        : ix + numPixels.x*iy;
 
       ((vec2f*)linearOut)[idx] = tiles[tileIdx].mv[subIdx];
 #endif
@@ -82,7 +88,9 @@ namespace BARNEY_NS {
                                        vec2i numPixels,
                                        MotionChannelTile *tilesIn,
                                        TileDesc          *descsIn,
-                                       int numTiles)
+                                       int numTiles,
+                                       bool packedTiles,
+                                       int firstPackedTile)
     {
       SetActiveGPU forDuration(device);
       __rtc_launch(device->rtc,
@@ -91,7 +99,9 @@ namespace BARNEY_NS {
                    linearOut,
                    numPixels,
                    tilesIn,
-                   descsIn);
+                   descsIn,
+                   packedTiles,
+                   firstPackedTile);
     }
     
 
@@ -104,7 +114,9 @@ namespace BARNEY_NS {
     void TiledFB::linearizeColorAndNormal(void *linearColor,
                                           BNDataType colorFormat,
                                           vec3f *linearNormal,
-                                          float  accumScale)
+                                          float  accumScale,
+                                          bool   packedTiles,
+                                          int    firstPackedTile)
     {
       SetActiveGPU forDuration(appDevice?appDevice:device);
       if (appDevice) {
@@ -125,7 +137,9 @@ namespace BARNEY_NS {
                    accumScale,
                    appDevice?appTileDescs:tileDescs,
                    appDevice?appAccumTiles:accumTiles,
-                   numPixels);
+                   numPixels,
+                   packedTiles,
+                   firstPackedTile);
     }
 
 
@@ -134,7 +148,9 @@ namespace BARNEY_NS {
                                               void           *linearOut,
                                               vec2i           numPixels,
                                               AuxChannelTile *aux,
-                                              TileDesc       *descs)
+                                              TileDesc       *descs,
+                                              bool            packedTiles,
+                                              int             firstPackedTile)
     {
 #if RTC_DEVICE_CODE
       int        tileIdx = ci.getBlockIdx().x;
@@ -145,9 +161,10 @@ namespace BARNEY_NS {
       int iiy = subIdx / tileSize;
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
-      if (ix >= numPixels.x) return;
-      if (iy >= numPixels.y) return;
-      int idx = ix + numPixels.x*iy;
+      if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int idx = packedTiles
+        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        : ix + numPixels.x*iy;
 
       ((uint32_t*)linearOut)[idx] = aux[tileIdx].ui[subIdx];
 #endif
@@ -161,7 +178,9 @@ namespace BARNEY_NS {
                                     vec2i numPixels,
                                     AuxChannelTile *tilesIn,
                                     TileDesc       *descsIn,
-                                    int numTiles)
+                                    int numTiles,
+                                    bool packedTiles,
+                                    int firstPackedTile)
     {
       SetActiveGPU forDuration(device);
       __rtc_launch(// device
@@ -174,13 +193,17 @@ namespace BARNEY_NS {
                    linearOut,
                    numPixels,
                    tilesIn,
-                   descsIn);
+                   descsIn,
+                   packedTiles,
+                   firstPackedTile);
     }
   
 
     /*! linearize _this gpu's_ channels */
     void TiledFB::linearizeAuxChannel(void *linearChannel,
-                                      BNFrameBufferChannel channel)
+                                      BNFrameBufferChannel channel,
+                                      bool packedTiles,
+                                      int firstPackedTile)
     {
       AuxChannelTile *tgt_aux = 0;
       AuxChannelTile *loc_aux = 0;
@@ -211,7 +234,9 @@ namespace BARNEY_NS {
                              linearChannel,numPixels,
                              tgt_mv,
                              appDevice?appTileDescs:tileDescs,
-                             numActiveTilesThisGPU);
+                             numActiveTilesThisGPU,
+                             packedTiles,
+                             firstPackedTile);
         return;
       }        
       default:
@@ -224,7 +249,9 @@ namespace BARNEY_NS {
                         linearChannel,numPixels,
                         tgt_aux,
                         appDevice?appTileDescs:tileDescs,
-                        numActiveTilesThisGPU);
+                        numActiveTilesThisGPU,
+                        packedTiles,
+                        firstPackedTile);
     }
 
   
@@ -280,7 +307,7 @@ namespace BARNEY_NS {
         freeAndSetNull(appDevice,appAuxTiles.instID);
         freeAndSetNull(appDevice,appAuxTiles.objID);
         freeAndSetNull(appDevice,appAuxTiles.depth);
-        freeAndSetNull(device,auxTiles.motion);
+        freeAndSetNull(appDevice,appAuxTiles.motion);
       }
     }
 
@@ -348,14 +375,14 @@ namespace BARNEY_NS {
       if (channels & BN_FB_INSTID) alloc(device,auxTiles.instID);
       if (channels & BN_FB_OBJID)  alloc(device,auxTiles.objID);
       if (channels & BN_FB_DEPTH)  alloc(device,auxTiles.depth);
-      if (channels & BN_FB_MOTION) allocMotion(device,auxTiles.motion);      
+      if (channels & BN_FB_MOTION) allocMotion(device,auxTiles.motion);
       if (appDevice) {
         SetActiveGPU forDuration(appDevice);
         if (channels & BN_FB_PRIMID) alloc(appDevice,appAuxTiles.primID);
         if (channels & BN_FB_INSTID) alloc(appDevice,appAuxTiles.instID);
         if (channels & BN_FB_OBJID)  alloc(appDevice,appAuxTiles.objID);
         if (channels & BN_FB_DEPTH)  alloc(appDevice,appAuxTiles.depth);
-        if (channels & BN_FB_MOTION) allocMotion(device,auxTiles.motion);      
+        if (channels & BN_FB_MOTION) allocMotion(appDevice,appAuxTiles.motion);
       }
     
       // ------------------------------------------------------------------

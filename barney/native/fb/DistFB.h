@@ -81,6 +81,7 @@ namespace BARNEY_NS {
       void resize(BNDataType colorFormat,
                   vec2i size,
                   uint32_t channels) override;
+      void finalizeTiles() override;
 
       /*! gather color (and optionally, if not null) linear normal, from
         all GPUs (and ranks). lienarColor and lienarNormal are

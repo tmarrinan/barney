@@ -68,6 +68,7 @@ namespace BARNEY_NS {
         int        *objID{nullptr};
         float      *normal{nullptr};
         float      *motion{nullptr};
+        int32_t    *tileInfo{nullptr};
       } m_channelBuffers;
       struct {
         /* for performance warnings; initialize all to 'true' so they

@@ -724,6 +724,38 @@ namespace BARNEY_NS {
   }
 
   BARNEY_API
+  void bnFrameBufferGetLocalTileInfo(BNFrameBuffer fb,
+                                     int *tileSize,
+                                     int *numTiles,
+                                     const void **tileDescs)
+  {
+    LOG_API_ENTRY;
+    auto frameBuffer = checkGet(fb);
+    if (tileSize) *tileSize = frameBuffer->localOnly ? native::tileSize : 0;
+    if (numTiles) *numTiles = frameBuffer->localOnly
+      ? frameBuffer->localTileCount
+      : 0;
+    if (tileDescs) *tileDescs = frameBuffer->localOnly
+      ? frameBuffer->localTileDescs
+      : nullptr;
+  }
+
+  BARNEY_API
+  void bnFrameBufferReadLocalTileOrigins(BNFrameBuffer fb,
+                                         bn_int2 *tileOrigins)
+  {
+    LOG_API_ENTRY;
+    auto frameBuffer = checkGet(fb);
+    if (!tileOrigins || !frameBuffer->localOnly || !frameBuffer->localTileCount)
+      return;
+    auto device = frameBuffer->getDenoiserDevice();
+    SetActiveGPU forDuration(device);
+    device->rtc->copy(tileOrigins,
+                      frameBuffer->localTileDescs,
+                      size_t(frameBuffer->localTileCount) * sizeof(bn_int2));
+  }
+
+  BARNEY_API
   void bnFrameBufferGetSize(BNFrameBuffer fb, int *sizeX, int *sizeY)
   {
     if (!sizeX || !sizeY) return;

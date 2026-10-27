@@ -110,6 +110,11 @@ namespace BARNEY_NS {
         device->rtc->freeMem(linearMotionChannel);
         linearMotionChannel = 0;
       }      
+      if (localTileDescs) {
+        device->rtc->freeMem(localTileDescs);
+        localTileDescs = nullptr;
+      }
+      localTileCount = 0;
     }
 
     struct LinearToFixed8 {
@@ -231,8 +236,7 @@ namespace BARNEY_NS {
       Device *device = getDenoiserDevice();
       SetActiveGPU forDuration(device);
 
-      // Local tiles stay in this rank's CUDA buffer; denoising and
-      // upscaling both expect a fully gathered frame on the owner.
+      // Denoising and upscaling both expect a fully gathered frame.
       bool doDenoising = !localOnly
         && (denoiser != 0) && (enableDenoising || enableUpscaling);
 
@@ -270,16 +274,18 @@ namespace BARNEY_NS {
         }
       }
 
-      if (channels & BN_FB_DEPTH)
-        gatherAuxChannel(BN_FB_DEPTH);
-      if (channels & BN_FB_PRIMID)
-        gatherAuxChannel(BN_FB_PRIMID);
-      if (channels & BN_FB_OBJID)
-        gatherAuxChannel(BN_FB_OBJID);
-      if (channels & BN_FB_INSTID)
-        gatherAuxChannel(BN_FB_INSTID);
-      if (channels & BN_FB_MOTION)
-        gatherMotionChannel();      
+      if (!localOnly) {
+        if (channels & BN_FB_DEPTH)
+          gatherAuxChannel(BN_FB_DEPTH);
+        if (channels & BN_FB_PRIMID)
+          gatherAuxChannel(BN_FB_PRIMID);
+        if (channels & BN_FB_OBJID)
+          gatherAuxChannel(BN_FB_OBJID);
+        if (channels & BN_FB_INSTID)
+          gatherAuxChannel(BN_FB_INSTID);
+        if (channels & BN_FB_MOTION)
+          gatherMotionChannel();
+      }
     }
 
     /*! gather color (and normal, if required for denoising),
@@ -293,7 +299,8 @@ namespace BARNEY_NS {
       Device *device = getDenoiserDevice();
       SetActiveGPU forDuration(device);
 
-      bool doDenoising = denoiser != 0 && (enableDenoising || enableUpscaling);
+      bool doDenoising = !localOnly
+        && denoiser != 0 && (enableDenoising || enableUpscaling);
       if (doDenoising) {
         float blendFactor = fadeOutDenoiser ? (accumID-1) / (accumID+100.f) : 0.f;
         denoiser->run(blendFactor);
@@ -341,8 +348,11 @@ namespace BARNEY_NS {
           = (requestedFormat == BN_FLOAT4)
           ? sizeof(vec4f)
           : sizeof(uint32_t);
+        size_t numOutputPixels = localOnly
+          ? size_t(localTileCount) * pixelsPerTile
+          : size_t(numPixels.x) * numPixels.y;
         device->rtc->copy(appMemory,linearColorChannel,
-                          numPixels.x*numPixels.y*sizeOfPixel);
+                          numOutputPixels * sizeOfPixel);
       }
       device->rtc->sync();
     }
@@ -417,21 +427,30 @@ namespace BARNEY_NS {
         }
         // NOTE: depth + id buffers happen to be the same bytes-per-pixel
         device->rtc->copy(appMemory,linearAuxChannel,
-                          numPixels.x*numPixels.y*sizeof(uint32_t));
+                          (localOnly
+                             ? size_t(localTileCount) * pixelsPerTile
+                             : size_t(numPixels.x) * numPixels.y)
+                            * sizeof(uint32_t));
         return;
       }
 
       if (channel == BN_FB_NORMAL && linearNormalChannel) {
         // normals were already linearized (and upscaled if needed) during finalizeFrame()
         device->rtc->copy(appMemory,linearNormalChannel,
-                          numPixels.x*numPixels.y*sizeof(vec3f));
+                          (localOnly
+                             ? size_t(localTileCount) * pixelsPerTile
+                             : size_t(numPixels.x) * numPixels.y)
+                            * sizeof(vec3f));
         return;
       }
 
       if (channel == BN_FB_MOTION && linearMotionChannel) {
         writeMotionChannel(linearMotionChannel);
         device->rtc->copy(appMemory,linearMotionChannel,
-                          numPixels.x*numPixels.y*sizeof(vec2f));
+                          (localOnly
+                             ? size_t(localTileCount) * pixelsPerTile
+                             : size_t(numPixels.x) * numPixels.y)
+                            * sizeof(vec2f));
         return;
       }
 
@@ -465,8 +484,10 @@ namespace BARNEY_NS {
       }
 
       // tiles render at renderPixels
+      localTileCount = 0;
       for (auto device : *devices) {
         getFor(device)->resize(channels, renderPixels);
+        localTileCount += getFor(device)->numActiveTilesThisGPU;
       }
 
       size_t sizeOfPixel
@@ -476,16 +497,21 @@ namespace BARNEY_NS {
 
       if (isOwner || localOnly) {
         auto rtc = getDenoiserDevice()->rtc;
-        int dpNP = numPixels.x * numPixels.y;   // display pixels
+        int dpNP = localOnly
+          ? localTileCount * pixelsPerTile
+          : numPixels.x * numPixels.y;   // display pixels or packed tile pixels
         int rpNP = renderPixels.x * renderPixels.y; // render pixels
 
-        // output buffers at display resolution
+        // In local-only mode these buffers hold packed rank-local tiles.
         linearColorChannel = rtc->allocMem(dpNP * sizeOfPixel);
         linearAuxChannel   = rtc->allocMem(dpNP * sizeof(uint32_t));
         if (channels & BN_FB_NORMAL)
           linearNormalChannel = rtc->allocMem(dpNP * sizeof(vec3f));
         if (channels & BN_FB_MOTION)
           linearMotionChannel = rtc->allocMem(dpNP * sizeof(vec2f));
+        if (localOnly)
+          localTileDescs = (TileDesc *)rtc->allocMem(
+            size_t(localTileCount) * sizeof(TileDesc));
         
         // when upscaling, we need render-resolution staging buffers
         // for aux/normal (tile linearization writes at render res,
@@ -529,4 +555,3 @@ namespace BARNEY_NS {
     RTC_EXPORT_COMPUTE2D(linearToFixed8,LinearToFixed8);
   }
 }
-

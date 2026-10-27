@@ -70,16 +70,15 @@ namespace BARNEY_NS {
                   vec2i newSize);
       void free();
 
-      /*! take this GPU's tiles, and write those tiles' color (and
-        optionally normal) channels into the linear frame buffers
-        provided. The linearColor is guaranteed to be non-null, and to
-        be numPixels.x*numPixels.y vec4fs; linearNormal may be
-        null. Linear buffers may live on another GPU, but are
-        guaranteed to be on the same node. */
+      /*! write this GPU's color (and optionally normal) tiles into a
+        linear image or an offset in a packed tile stream. Output
+        buffers may live on another GPU on the same node. */
       void linearizeColorAndNormal(void  *linearColor,
                                    BNDataType format,
                                    vec3f *linearNormal,
-                                   float  accumScale);
+                                   float  accumScale,
+                                   bool packedTiles = false,
+                                   int firstPackedTile = 0);
 
       /*! linearize given array's aux tiles, on given device. this can be
         used either for local GPUs on a single node, or on the owner
@@ -89,7 +88,9 @@ namespace BARNEY_NS {
                                     vec2i numPixels,
                                     AuxChannelTile *tilesIn,
                                     TileDesc       *descsIn,
-                                    int numTiles);
+                                    int numTiles,
+                                    bool packedTiles = false,
+                                    int firstPackedTile = 0);
 
       /*! motion-channel equivalent of linearizeAuxTiles - unpacks
         tiled vec2f motion vectors into a linear vec2f array */
@@ -98,11 +99,15 @@ namespace BARNEY_NS {
                                        vec2i numPixels,
                                        MotionChannelTile *tilesIn,
                                        TileDesc          *descsIn,
-                                       int numTiles);
+                                       int numTiles,
+                                       bool packedTiles = false,
+                                       int firstPackedTile = 0);
       
       /*! linearize _this gpu's_ channels */
       void linearizeAuxChannel(void *linearChannel,
-                               BNFrameBufferChannel whichChannel);
+                               BNFrameBufferChannel whichChannel,
+                               bool packedTiles = false,
+                               int firstPackedTile = 0);
     
       /*! number of (valid) pixels */
       vec2i numPixels       = { 0,0 };

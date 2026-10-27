@@ -38,7 +38,7 @@ namespace BARNEY_NS {
 
       bool needHitIDs() const;
 
-      void finalizeTiles();
+      virtual void finalizeTiles();
       void finalizeFrame();
 
       /*! gather color (and optionally, if not null) linear normal, from
@@ -90,10 +90,8 @@ namespace BARNEY_NS {
 
       std::vector<PLD> perLogical;
 
-      /*! staging area for gathering/writing pixels into, will be Nx*Ny
-        pixels of type as provided specified during resize. This may
-        point to either float4 or rgba8 depending on requested
-        format */
+      /*! color output buffer. It is full-frame outside local-only mode
+        and a packed local tile stream in local-only mode. */
       void *linearColorChannel = 0;
 
       /*! staging area for re-assembling any other channel; note this
@@ -159,9 +157,11 @@ namespace BARNEY_NS {
         full display resolution. Requires denoiser support. */
       bool enableUpscaling = false;
 
-      /*! MPI data-parallel: leave each rank's tiles in local device
-        memory instead of compressing and gathering them onto rank 0. */
+      /*! MPI data-parallel: avoid cross-rank pixel gathers. Each rank
+        exposes its rank-local tiles packed in local-device/tile order. */
       bool localOnly = false;
+      int localTileCount = 0;
+      TileDesc *localTileDescs = nullptr;
 
       /*! how many samples per pixels have already been accumulated in
         this frame buffer's accumulation buffer. Note this is counted

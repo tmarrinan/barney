@@ -111,8 +111,33 @@ namespace BARNEY_NS {
 #endif
 
 
+    void DistFB::finalizeTiles()
+    {
+      if (!localOnly || !localTileDescs) return;
+
+      Device *front = getDenoiserDevice();
+      SetActiveGPU forDuration(front);
+      int firstTile = 0;
+      for (auto localDevice : *devices) {
+        auto tiledFB = getFor(localDevice);
+        localDevice->sync();
+        TileDesc *source = tiledFB->appDevice
+          ? tiledFB->appTileDescs
+          : tiledFB->tileDescs;
+        if (source)
+          front->rtc->copyAsync(localTileDescs + firstTile,
+                                source,
+                                size_t(tiledFB->numActiveTilesThisGPU)
+                                  * sizeof(TileDesc));
+        firstTile += tiledFB->numActiveTilesThisGPU;
+      }
+      front->sync();
+    }
+
     void DistFB::gatherMotionChannel()
     {
+      if (localOnly) return;
+
       std::vector<MPI_Request> recv_requests(isOwner ? ownerGather.numGPUs : 0);
       std::vector<MPI_Request> send_requests(context->isActiveWorker ? devices->size() : 0);
 
@@ -147,6 +172,20 @@ namespace BARNEY_NS {
 
     void DistFB::writeMotionChannel(void *stagingArea)
     {
+      if (localOnly) {
+        int firstTile = 0;
+        for (auto localDevice : *devices)
+        {
+          auto tiledFB = getFor(localDevice);
+          tiledFB->linearizeAuxChannel(stagingArea, BN_FB_MOTION,
+                                       true, firstTile);
+          firstTile += tiledFB->numActiveTilesThisGPU;
+        }
+        for (auto localDevice : *devices)
+          localDevice->sync();
+        return;
+      }
+
       if (!isOwner) return;
       auto device = getDenoiserDevice();
       TiledFB::linearizeMotionTiles(device,
@@ -165,6 +204,8 @@ namespace BARNEY_NS {
       one gpu) and possibly some mpi communication (distFB) */
     void DistFB::gatherAuxChannel(BNFrameBufferChannel channel)
     {
+      if (localOnly) return;
+
       // ------------------------------------------------------------------
       // gather all (packed) tiles from all clients
       // ------------------------------------------------------------------
@@ -268,6 +309,19 @@ namespace BARNEY_NS {
     void DistFB::writeAuxChannel(void *stagingArea,
                                  BNFrameBufferChannel channel)
     {
+      if (localOnly) {
+        int firstTile = 0;
+        for (auto localDevice : *devices)
+        {
+          auto tiledFB = getFor(localDevice);
+          tiledFB->linearizeAuxChannel(stagingArea, channel, true, firstTile);
+          firstTile += tiledFB->numActiveTilesThisGPU;
+        }
+        for (auto localDevice : *devices)
+          localDevice->sync();
+        return;
+      }
+
       if (!isOwner) return;
 
       AuxChannelTile *inTiles = 0;
@@ -299,25 +353,15 @@ namespace BARNEY_NS {
                                     vec3f *linearNormal)
     {
       if (localOnly) {
-        /* Each rank writes only the tiles it owns into its own device
-           buffer. Unowned pixels stay zero, so the image is this
-           rank's checkerboard of tiles. No MPI gather. */
+        /* Pack this rank's local-device tile arrays into one CUDA buffer. */
         if (!linearColor) return;
-        size_t sizeOfPixel
-          = (gatherType == BN_FLOAT4) ? sizeof(vec4f) : sizeof(uint32_t);
-        Device *front = getDenoiserDevice();
-        SetActiveGPU forDuration(front);
-        front->rtc->memsetAsync(linearColor, 0,
-                                size_t(numPixels.x) * numPixels.y * sizeOfPixel);
-        if (linearNormal)
-          front->rtc->memsetAsync(linearNormal, 0,
-                                  size_t(numPixels.x) * numPixels.y * sizeof(vec3f));
-        front->sync();
-
         float accumScale = 1.f / float(accumID == 0 ? 1u : accumID);
+        int firstTile = 0;
         for (auto device : *devices) {
           getFor(device)->linearizeColorAndNormal
-            (linearColor, gatherType, linearNormal, accumScale);
+            (linearColor, gatherType, linearNormal, accumScale,
+             true, firstTile);
+          firstTile += getFor(device)->numActiveTilesThisGPU;
         }
         for (auto device : *devices)
           device->sync();
