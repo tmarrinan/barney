@@ -727,6 +727,8 @@ namespace BARNEY_NS {
   void bnFrameBufferGetLocalTileInfo(BNFrameBuffer fb,
                                      int *tileSize,
                                      int *numTiles,
+                                     int *tilesWide,
+                                     int *tilesHigh,
                                      const void **tileDescs)
   {
     LOG_API_ENTRY;
@@ -734,6 +736,12 @@ namespace BARNEY_NS {
     if (tileSize) *tileSize = frameBuffer->localOnly ? native::tileSize : 0;
     if (numTiles) *numTiles = frameBuffer->localOnly
       ? frameBuffer->localTileCount
+      : 0;
+    if (tilesWide) *tilesWide = frameBuffer->localOnly
+      ? frameBuffer->localTileGrid.x
+      : 0;
+    if (tilesHigh) *tilesHigh = frameBuffer->localOnly
+      ? frameBuffer->localTileGrid.y
       : 0;
     if (tileDescs) *tileDescs = frameBuffer->localOnly
       ? frameBuffer->localTileDescs

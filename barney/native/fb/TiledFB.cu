@@ -19,7 +19,8 @@ namespace BARNEY_NS {
                                        AccumTile *tiles,
                                        vec2i      numPixels,
                                        bool       packedTiles,
-                                       int        firstPackedTile)
+                                       int        firstPackedTile,
+                                       int        packedGridWidth)
     {
 #if RTC_DEVICE_CODE
       int tileIdx = ci.getBlockIdx().x;
@@ -33,8 +34,11 @@ namespace BARNEY_NS {
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
       if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int packedTile = firstPackedTile + tileIdx;
       int idx = packedTiles
-        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        ? (packedTile % packedGridWidth * tileSize + iix)
+            + (packedTile / packedGridWidth * tileSize + iiy)
+              * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
 
       vec4f color = tile->accum[subIdx] * accumScale;
@@ -63,7 +67,8 @@ namespace BARNEY_NS {
                                     MotionChannelTile *tiles,
                                     TileDesc          *descs,
                                     bool               packedTiles,
-                                    int                firstPackedTile)
+                                    int                firstPackedTile,
+                                    int                packedGridWidth)
     {
 #if RTC_DEVICE_CODE
       int      tileIdx = ci.getBlockIdx().x;
@@ -75,8 +80,11 @@ namespace BARNEY_NS {
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
       if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int packedTile = firstPackedTile + tileIdx;
       int idx = packedTiles
-        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        ? (packedTile % packedGridWidth * tileSize + iix)
+            + (packedTile / packedGridWidth * tileSize + iiy)
+              * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
 
       ((vec2f*)linearOut)[idx] = tiles[tileIdx].mv[subIdx];
@@ -90,7 +98,8 @@ namespace BARNEY_NS {
                                        TileDesc          *descsIn,
                                        int numTiles,
                                        bool packedTiles,
-                                       int firstPackedTile)
+                                       int firstPackedTile,
+                                       int packedGridWidth)
     {
       SetActiveGPU forDuration(device);
       __rtc_launch(device->rtc,
@@ -101,7 +110,8 @@ namespace BARNEY_NS {
                    tilesIn,
                    descsIn,
                    packedTiles,
-                   firstPackedTile);
+                   firstPackedTile,
+                   packedGridWidth);
     }
     
 
@@ -116,7 +126,8 @@ namespace BARNEY_NS {
                                           vec3f *linearNormal,
                                           float  accumScale,
                                           bool   packedTiles,
-                                          int    firstPackedTile)
+                                          int    firstPackedTile,
+                                          int    packedGridWidth)
     {
       SetActiveGPU forDuration(appDevice?appDevice:device);
       if (appDevice) {
@@ -139,7 +150,8 @@ namespace BARNEY_NS {
                    appDevice?appAccumTiles:accumTiles,
                    numPixels,
                    packedTiles,
-                   firstPackedTile);
+                   firstPackedTile,
+                   packedGridWidth);
     }
 
 
@@ -150,7 +162,8 @@ namespace BARNEY_NS {
                                               AuxChannelTile *aux,
                                               TileDesc       *descs,
                                               bool            packedTiles,
-                                              int             firstPackedTile)
+                                              int             firstPackedTile,
+                                              int             packedGridWidth)
     {
 #if RTC_DEVICE_CODE
       int        tileIdx = ci.getBlockIdx().x;
@@ -162,8 +175,11 @@ namespace BARNEY_NS {
       int ix = desc.lower.x + iix;
       int iy = desc.lower.y + iiy;
       if (!packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) return;
+      int packedTile = firstPackedTile + tileIdx;
       int idx = packedTiles
-        ? (firstPackedTile + tileIdx) * pixelsPerTile + subIdx
+        ? (packedTile % packedGridWidth * tileSize + iix)
+            + (packedTile / packedGridWidth * tileSize + iiy)
+              * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
 
       ((uint32_t*)linearOut)[idx] = aux[tileIdx].ui[subIdx];
@@ -180,7 +196,8 @@ namespace BARNEY_NS {
                                     TileDesc       *descsIn,
                                     int numTiles,
                                     bool packedTiles,
-                                    int firstPackedTile)
+                                    int firstPackedTile,
+                                    int packedGridWidth)
     {
       SetActiveGPU forDuration(device);
       __rtc_launch(// device
@@ -195,7 +212,8 @@ namespace BARNEY_NS {
                    tilesIn,
                    descsIn,
                    packedTiles,
-                   firstPackedTile);
+                   firstPackedTile,
+                   packedGridWidth);
     }
   
 
@@ -203,7 +221,8 @@ namespace BARNEY_NS {
     void TiledFB::linearizeAuxChannel(void *linearChannel,
                                       BNFrameBufferChannel channel,
                                       bool packedTiles,
-                                      int firstPackedTile)
+                                      int firstPackedTile,
+                                      int packedGridWidth)
     {
       AuxChannelTile *tgt_aux = 0;
       AuxChannelTile *loc_aux = 0;
@@ -236,7 +255,8 @@ namespace BARNEY_NS {
                              appDevice?appTileDescs:tileDescs,
                              numActiveTilesThisGPU,
                              packedTiles,
-                             firstPackedTile);
+                             firstPackedTile,
+                             packedGridWidth);
         return;
       }        
       default:
@@ -251,7 +271,8 @@ namespace BARNEY_NS {
                         appDevice?appTileDescs:tileDescs,
                         numActiveTilesThisGPU,
                         packedTiles,
-                        firstPackedTile);
+                        firstPackedTile,
+                        packedGridWidth);
     }
 
   

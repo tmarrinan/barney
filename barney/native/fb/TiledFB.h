@@ -78,7 +78,8 @@ namespace BARNEY_NS {
                                    vec3f *linearNormal,
                                    float  accumScale,
                                    bool packedTiles = false,
-                                   int firstPackedTile = 0);
+                                   int firstPackedTile = 0,
+                                   int packedGridWidth = 0);
 
       /*! linearize given array's aux tiles, on given device. this can be
         used either for local GPUs on a single node, or on the owner
@@ -90,7 +91,8 @@ namespace BARNEY_NS {
                                     TileDesc       *descsIn,
                                     int numTiles,
                                     bool packedTiles = false,
-                                    int firstPackedTile = 0);
+                                    int firstPackedTile = 0,
+                                    int packedGridWidth = 0);
 
       /*! motion-channel equivalent of linearizeAuxTiles - unpacks
         tiled vec2f motion vectors into a linear vec2f array */
@@ -101,13 +103,15 @@ namespace BARNEY_NS {
                                        TileDesc          *descsIn,
                                        int numTiles,
                                        bool packedTiles = false,
-                                       int firstPackedTile = 0);
+                                       int firstPackedTile = 0,
+                                       int packedGridWidth = 0);
       
       /*! linearize _this gpu's_ channels */
       void linearizeAuxChannel(void *linearChannel,
                                BNFrameBufferChannel whichChannel,
                                bool packedTiles = false,
-                               int firstPackedTile = 0);
+                               int firstPackedTile = 0,
+                               int packedGridWidth = 0);
     
       /*! number of (valid) pixels */
       vec2i numPixels       = { 0,0 };

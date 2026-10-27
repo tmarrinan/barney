@@ -115,6 +115,7 @@ namespace BARNEY_NS {
         localTileDescs = nullptr;
       }
       localTileCount = 0;
+      localTileGrid = {0, 0};
     }
 
     struct LinearToFixed8 {
@@ -349,7 +350,7 @@ namespace BARNEY_NS {
           ? sizeof(vec4f)
           : sizeof(uint32_t);
         size_t numOutputPixels = localOnly
-          ? size_t(localTileCount) * pixelsPerTile
+          ? size_t(localTileGrid.x) * localTileGrid.y * pixelsPerTile
           : size_t(numPixels.x) * numPixels.y;
         device->rtc->copy(appMemory,linearColorChannel,
                           numOutputPixels * sizeOfPixel);
@@ -428,7 +429,8 @@ namespace BARNEY_NS {
         // NOTE: depth + id buffers happen to be the same bytes-per-pixel
         device->rtc->copy(appMemory,linearAuxChannel,
                           (localOnly
-                             ? size_t(localTileCount) * pixelsPerTile
+                             ? size_t(localTileGrid.x) * localTileGrid.y
+                               * pixelsPerTile
                              : size_t(numPixels.x) * numPixels.y)
                             * sizeof(uint32_t));
         return;
@@ -438,7 +440,8 @@ namespace BARNEY_NS {
         // normals were already linearized (and upscaled if needed) during finalizeFrame()
         device->rtc->copy(appMemory,linearNormalChannel,
                           (localOnly
-                             ? size_t(localTileCount) * pixelsPerTile
+                             ? size_t(localTileGrid.x) * localTileGrid.y
+                               * pixelsPerTile
                              : size_t(numPixels.x) * numPixels.y)
                             * sizeof(vec3f));
         return;
@@ -448,7 +451,8 @@ namespace BARNEY_NS {
         writeMotionChannel(linearMotionChannel);
         device->rtc->copy(appMemory,linearMotionChannel,
                           (localOnly
-                             ? size_t(localTileCount) * pixelsPerTile
+                             ? size_t(localTileGrid.x) * localTileGrid.y
+                               * pixelsPerTile
                              : size_t(numPixels.x) * numPixels.y)
                             * sizeof(vec2f));
         return;
@@ -489,6 +493,9 @@ namespace BARNEY_NS {
         getFor(device)->resize(channels, renderPixels);
         localTileCount += getFor(device)->numActiveTilesThisGPU;
       }
+      if (localOnly && localTileCount > 0) {
+        localTileGrid = {localTileCount, 1};
+      }
 
       size_t sizeOfPixel
         = (colorFormat == BN_FLOAT4)
@@ -498,7 +505,7 @@ namespace BARNEY_NS {
       if (isOwner || localOnly) {
         auto rtc = getDenoiserDevice()->rtc;
         int dpNP = localOnly
-          ? localTileCount * pixelsPerTile
+          ? localTileGrid.x * localTileGrid.y * pixelsPerTile
           : numPixels.x * numPixels.y;   // display pixels or packed tile pixels
         int rpNP = renderPixels.x * renderPixels.y; // render pixels
 

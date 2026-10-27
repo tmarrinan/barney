@@ -13,7 +13,7 @@
           "types": ["ANARI_BOOL"],
           "tags": [],
           "default": false,
-          "description": "MPI data-parallel: expose this rank's tiles packed in local-device/tile order without gathering onto rank 0. Mapped image channels have dimensions 32 by (localTileCount * 32). Map channel.tileInfo for one ANARI_INT32_VEC4 per packed tile: full-frame origin x/y and valid edge-clipped tile width/height."
+          "description": "MPI data-parallel: expose this rank's tiles packed without gathering onto rank 0. Tiles are laid out in one horizontal row, with image channel dimensions (localTileCount * 32) by 32. Map channel.tileInfo for matching dimensions and ANARI_INT32_VEC4 entries containing each tile's full-frame origin x/y and valid edge-clipped width/height."
         }
       ],
       "channel": [

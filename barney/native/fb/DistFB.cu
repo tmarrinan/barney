@@ -173,12 +173,18 @@ namespace BARNEY_NS {
     void DistFB::writeMotionChannel(void *stagingArea)
     {
       if (localOnly) {
+        Device *front = getDenoiserDevice();
+        SetActiveGPU forDuration(front);
+        front->rtc->memsetAsync(
+          stagingArea, 0,
+          size_t(localTileGrid.x) * localTileGrid.y * pixelsPerTile * sizeof(vec2f));
+        front->sync();
         int firstTile = 0;
         for (auto localDevice : *devices)
         {
           auto tiledFB = getFor(localDevice);
           tiledFB->linearizeAuxChannel(stagingArea, BN_FB_MOTION,
-                                       true, firstTile);
+                                       true, firstTile, localTileGrid.x);
           firstTile += tiledFB->numActiveTilesThisGPU;
         }
         for (auto localDevice : *devices)
@@ -310,11 +316,19 @@ namespace BARNEY_NS {
                                  BNFrameBufferChannel channel)
     {
       if (localOnly) {
+        Device *front = getDenoiserDevice();
+        SetActiveGPU forDuration(front);
+        front->rtc->memsetAsync(
+          stagingArea, 0,
+          size_t(localTileGrid.x) * localTileGrid.y * pixelsPerTile
+            * sizeof(uint32_t));
+        front->sync();
         int firstTile = 0;
         for (auto localDevice : *devices)
         {
           auto tiledFB = getFor(localDevice);
-          tiledFB->linearizeAuxChannel(stagingArea, channel, true, firstTile);
+          tiledFB->linearizeAuxChannel(stagingArea, channel, true, firstTile,
+                                       localTileGrid.x);
           firstTile += tiledFB->numActiveTilesThisGPU;
         }
         for (auto localDevice : *devices)
@@ -355,12 +369,22 @@ namespace BARNEY_NS {
       if (localOnly) {
         /* Pack this rank's local-device tile arrays into one CUDA buffer. */
         if (!linearColor) return;
+        size_t packedPixels
+          = size_t(localTileGrid.x) * localTileGrid.y * pixelsPerTile;
+        size_t colorPixelSize
+          = gatherType == BN_FLOAT4 ? sizeof(vec4f) : sizeof(uint32_t);
+        Device *front = getDenoiserDevice();
+        SetActiveGPU forDuration(front);
+        front->rtc->memsetAsync(linearColor, 0, packedPixels * colorPixelSize);
+        if (linearNormal)
+          front->rtc->memsetAsync(linearNormal, 0, packedPixels * sizeof(vec3f));
+        front->sync();
         float accumScale = 1.f / float(accumID == 0 ? 1u : accumID);
         int firstTile = 0;
         for (auto device : *devices) {
           getFor(device)->linearizeColorAndNormal
             (linearColor, gatherType, linearNormal, accumScale,
-             true, firstTile);
+             true, firstTile, localTileGrid.x);
           firstTile += getFor(device)->numActiveTilesThisGPU;
         }
         for (auto device : *devices)

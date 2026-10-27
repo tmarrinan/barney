@@ -161,6 +161,7 @@ namespace BARNEY_NS {
         exposes its rank-local tiles packed in local-device/tile order. */
       bool localOnly = false;
       int localTileCount = 0;
+      vec2i localTileGrid = {0, 0};
       TileDesc *localTileDescs = nullptr;
 
       /*! how many samples per pixels have already been accumulated in

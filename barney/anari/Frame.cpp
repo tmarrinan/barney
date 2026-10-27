@@ -259,12 +259,16 @@ namespace BARNEY_NS {
       if (m_localOnly) {
         int tileSize = 0;
         int numTiles = 0;
+        int tilesWide = 0;
+        int tilesHigh = 0;
         bnFrameBufferGetLocalTileInfo(m_bnFrameBuffer,
                                      &tileSize,
                                      &numTiles,
+                                     &tilesWide,
+                                     &tilesHigh,
                                      nullptr);
-        *width = static_cast<uint32_t>(tileSize);
-        *height = static_cast<uint32_t>(numTiles * tileSize);
+        *width = static_cast<uint32_t>(tilesWide * tileSize);
+        *height = static_cast<uint32_t>(tilesHigh * tileSize);
       } else {
         *width = m_size.x;
         *height = m_size.y;
@@ -343,25 +347,33 @@ namespace BARNEY_NS {
             ("trying to map channel.tileInfo, but seems already mapped");
         int tileSize = 0;
         int numTiles = 0;
+        int tilesWide = 0;
+        int tilesHigh = 0;
         bnFrameBufferGetLocalTileInfo(m_bnFrameBuffer,
                                      &tileSize,
                                      &numTiles,
+                                     &tilesWide,
+                                     &tilesHigh,
                                      nullptr);
         std::vector<bn_int2> origins(numTiles);
         bnFrameBufferReadLocalTileOrigins(m_bnFrameBuffer, origins.data());
-        m_channelBuffers.tileInfo = new int32_t[size_t(numTiles) * 4];
+        size_t numGridCells = size_t(tilesWide) * tilesHigh;
+        m_channelBuffers.tileInfo = new int32_t[numGridCells * 4];
+        std::fill_n(m_channelBuffers.tileInfo, numGridCells * 4, 0);
         for (int i = 0; i < numTiles; ++i) {
           const int x = origins[i].x;
           const int y = origins[i].y;
-          m_channelBuffers.tileInfo[4 * i + 0] = x;
-          m_channelBuffers.tileInfo[4 * i + 1] = y;
-          m_channelBuffers.tileInfo[4 * i + 2]
+          size_t infoIndex
+            = size_t(i / tilesWide) * tilesWide + (i % tilesWide);
+          m_channelBuffers.tileInfo[4 * infoIndex + 0] = x;
+          m_channelBuffers.tileInfo[4 * infoIndex + 1] = y;
+          m_channelBuffers.tileInfo[4 * infoIndex + 2]
             = std::max(0, std::min(tileSize, int(m_size.x) - x));
-          m_channelBuffers.tileInfo[4 * i + 3]
+          m_channelBuffers.tileInfo[4 * infoIndex + 3]
             = std::max(0, std::min(tileSize, int(m_size.y) - y));
         }
-        *width = 1;
-        *height = static_cast<uint32_t>(numTiles);
+        *width = static_cast<uint32_t>(tilesWide);
+        *height = static_cast<uint32_t>(tilesHigh);
         *pixelType = ANARI_INT32_VEC4;
         return m_channelBuffers.tileInfo;
 #if HAVE_NV_FRAMEBUFFER_EXTENSION
