@@ -92,7 +92,8 @@ namespace BARNEY_NS {
                                     int numTiles,
                                     bool packedTiles = false,
                                     int firstPackedTile = 0,
-                                    int packedGridWidth = 0);
+                                    int packedGridWidth = 0,
+                                    bool depthChannel = false);
 
       /*! motion-channel equivalent of linearizeAuxTiles - unpacks
         tiled vec2f motion vectors into a linear vec2f array */

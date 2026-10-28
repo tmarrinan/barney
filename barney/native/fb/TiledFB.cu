@@ -41,6 +41,15 @@ namespace BARNEY_NS {
               * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
 
+      if (packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) {
+        if (colorFormat == BN_FLOAT4)
+          ((vec4f *)out_rgba)[idx] = vec4f(0.f);
+        else
+          ((uint32_t *)out_rgba)[idx] = 0;
+        if (out_normal) out_normal[idx] = vec3f(0.f);
+        return;
+      }
+
       vec4f color = tile->accum[subIdx] * accumScale;
 
       if (colorFormat == BN_FLOAT4) {
@@ -86,6 +95,11 @@ namespace BARNEY_NS {
             + (packedTile / packedGridWidth * tileSize + iiy)
               * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
+
+      if (packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) {
+        ((vec2f *)linearOut)[idx] = vec2f(0.f);
+        return;
+      }
 
       ((vec2f*)linearOut)[idx] = tiles[tileIdx].mv[subIdx];
 #endif
@@ -163,7 +177,8 @@ namespace BARNEY_NS {
                                               TileDesc       *descs,
                                               bool            packedTiles,
                                               int             firstPackedTile,
-                                              int             packedGridWidth)
+                                              int             packedGridWidth,
+                                              bool            depthChannel)
     {
 #if RTC_DEVICE_CODE
       int        tileIdx = ci.getBlockIdx().x;
@@ -182,6 +197,20 @@ namespace BARNEY_NS {
               * (packedGridWidth * tileSize)
         : ix + numPixels.x*iy;
 
+      if (packedTiles && (ix >= numPixels.x || iy >= numPixels.y)) {
+        uint32_t value = 0;
+        if (depthChannel) {
+          union {
+            float f;
+            uint32_t ui;
+          } depth;
+          depth.f = BARNEY_INF;
+          value = depth.ui;
+        }
+        ((uint32_t *)linearOut)[idx] = value;
+        return;
+      }
+
       ((uint32_t*)linearOut)[idx] = aux[tileIdx].ui[subIdx];
 #endif
     }
@@ -197,7 +226,8 @@ namespace BARNEY_NS {
                                     int numTiles,
                                     bool packedTiles,
                                     int firstPackedTile,
-                                    int packedGridWidth)
+                                    int packedGridWidth,
+                                    bool depthChannel)
     {
       SetActiveGPU forDuration(device);
       __rtc_launch(// device
@@ -213,7 +243,8 @@ namespace BARNEY_NS {
                    descsIn,
                    packedTiles,
                    firstPackedTile,
-                   packedGridWidth);
+                   packedGridWidth,
+                   depthChannel);
     }
   
 
@@ -272,7 +303,8 @@ namespace BARNEY_NS {
                         numActiveTilesThisGPU,
                         packedTiles,
                         firstPackedTile,
-                        packedGridWidth);
+                        packedGridWidth,
+                        channel == BN_FB_DEPTH);
     }
 
   

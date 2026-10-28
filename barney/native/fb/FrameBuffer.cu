@@ -494,7 +494,7 @@ namespace BARNEY_NS {
         localTileCount += getFor(device)->numActiveTilesThisGPU;
       }
       if (localOnly && localTileCount > 0) {
-        localTileGrid = {localTileCount, 1};
+        localTileGrid = {1, localTileCount};
       }
 
       size_t sizeOfPixel
